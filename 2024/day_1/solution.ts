@@ -34,33 +34,13 @@ function fillLocationIds() {
 // 3. Add up all of those distances.
 function calculateTotalDistance() {
   if (lines) {
-    let distances: number[] = [];
     let totalDistance = 0;
 
+    groupOneLocationIds.sort((a, b) => a - b);
+    groupTwoLocationIds.sort((a, b) => a - b);
+
     for (let i = 0; i < lines.length; i++) {
-      for (let j = 0; j < lines.length; j++) {
-        if (groupOneLocationIds[i] > groupOneLocationIds[j]) {
-          const temp = groupOneLocationIds[i];
-          groupOneLocationIds[i] = groupOneLocationIds[j];
-          groupOneLocationIds[j] = temp;
-        }
-
-        if (groupTwoLocationIds[i] > groupTwoLocationIds[j]) {
-          const temp = groupTwoLocationIds[i];
-          groupTwoLocationIds[i] = groupTwoLocationIds[j];
-          groupTwoLocationIds[j] = temp;
-        }
-      }
-
-      distances.push(0);
-    }
-
-    for (let i = 0; i < distances.length; i++) {
-      distances[i] =
-        groupOneLocationIds[i] > groupTwoLocationIds[i]
-          ? groupOneLocationIds[i] - groupTwoLocationIds[i]
-          : groupTwoLocationIds[i] - groupOneLocationIds[i];
-      totalDistance += distances[i];
+      totalDistance += Math.abs(groupOneLocationIds[i] - groupTwoLocationIds[i]);
     }
 
     console.log(totalDistance); // The total distance should be equal to 2430334
@@ -76,15 +56,16 @@ function calculateSimilarityScores() {
 
   if (lines) {
     let similarityScores = 0;
+    const groupTwoCounts: { [key: number]: number } = {};
+
+    for (let i = 0; i < groupTwoLocationIds.length; i++) {
+      groupTwoCounts[groupTwoLocationIds[i]] =
+        (groupTwoCounts[groupTwoLocationIds[i]] || 0) + 1;
+    }
 
     for (let i = 0; i < groupOneLocationIds.length; i++) {
-      let count = 0;
-      for (let j = 0; j < groupTwoLocationIds.length; j++) {
-        if (groupOneLocationIds[i] == groupTwoLocationIds[j]) {
-          count += 1;
-        }
-      }
-      similarityScores += groupOneLocationIds[i] * count;
+      similarityScores +=
+        groupOneLocationIds[i] * (groupTwoCounts[groupOneLocationIds[i]] || 0);
     }
 
     console.log(similarityScores); // The total distance should be equal to 28786472
