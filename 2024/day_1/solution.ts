@@ -33,6 +33,8 @@ function fillLocationIds() {
 // 2. Figure out how far apart the two numbers are.
 // 3. Add up all of those distances.
 function calculateTotalDistance() {
+  const startTime = performance.now();
+  const beforeMemory = process.memoryUsage().heapUsed;
   if (lines) {
     let totalDistance = 0;
 
@@ -45,7 +47,19 @@ function calculateTotalDistance() {
       );
     }
 
-    console.log(totalDistance); // The total distance should be equal to 2430334
+    const afterMemory = process.memoryUsage().heapUsed;
+    console.log(`Memory used: ${(afterMemory - beforeMemory) / 1024} KB`);
+
+    // The total distance should be equal to 2430334
+    const endTime = performance.now();
+    const timeTaken = endTime - startTime;
+    console.log(
+      `Time taken by calculateTotalDistance: ${timeTaken.toFixed(
+        4
+      )} miliseconds`
+    );
+
+    console.log(totalDistance);
     return totalDistance;
   }
 }
@@ -54,8 +68,8 @@ function calculateTotalDistance() {
 // 2. Calculate a total similarity score by adding up each number in the left list after
 //    multiplying it by the number of times that number appears in the right list.
 function calculateSimilarityScores() {
-  const lines = processRowData();
-
+  const startTime = performance.now();
+  const beforeMemory = process.memoryUsage().heapUsed;
   if (lines) {
     let similarityScores = 0;
     const groupTwoCounts: { [key: number]: number } = {};
@@ -70,6 +84,17 @@ function calculateSimilarityScores() {
         groupOneLocationIds[i] * (groupTwoCounts[groupOneLocationIds[i]] || 0);
     }
 
+    const afterMemory = process.memoryUsage().heapUsed;
+    console.log(`Memory used: ${(afterMemory - beforeMemory) / 1024} KB`);
+
+    const endTime = performance.now();
+    const timeTaken = endTime - startTime;
+    console.log(
+      `Time taken by calculateTotalDistance: ${timeTaken.toFixed(
+        4
+      )} miliseconds`
+    );
+
     console.log(similarityScores); // The total distance should be equal to 28786472
     return similarityScores;
   }
@@ -77,24 +102,6 @@ function calculateSimilarityScores() {
 
 fillLocationIds();
 
-const startCalculateTotalDistanceTime = performance.now();
 calculateTotalDistance();
-const endTotalDistanceTime = performance.now();
-const timeTakenByCalculateTotalDistance =
-  endTotalDistanceTime - startCalculateTotalDistanceTime;
-console.log(
-  `Time taken by calculateTotalDistance: ${timeTakenByCalculateTotalDistance.toFixed(
-    4
-  )} miliseconds`
-);
 
-const startCalculateSimilarityScoresTime = performance.now();
 calculateSimilarityScores();
-const endCalculateSimilarityScoresTime = performance.now();
-const timeCalculateSimilarityScoresDistance =
-  endCalculateSimilarityScoresTime - startCalculateSimilarityScoresTime;
-console.log(
-  `Time taken by calculateSimilarityScores: ${timeCalculateSimilarityScoresDistance.toFixed(
-    4
-  )} miliseconds`
-);
