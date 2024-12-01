@@ -1,7 +1,6 @@
 import { readFileSync } from "fs";
+import { filePath } from "./file_path";
 
-const filePath =
-  "/Users/ylruiz/Documents/personal/advent_of_code/inputs/01_12_2024.txt";
 const lines = processRowData();
 let groupOneLocationIds: number[] = [];
 let groupTwoLocationIds: number[] = [];
@@ -40,7 +39,9 @@ function calculateTotalDistance() {
     groupTwoLocationIds.sort((a, b) => a - b);
 
     for (let i = 0; i < lines.length; i++) {
-      totalDistance += Math.abs(groupOneLocationIds[i] - groupTwoLocationIds[i]);
+      totalDistance += Math.abs(
+        groupOneLocationIds[i] - groupTwoLocationIds[i]
+      );
     }
 
     console.log(totalDistance); // The total distance should be equal to 2430334
@@ -92,7 +93,7 @@ const endCalculateSimilarityScoresTime = performance.now();
 const timeCalculateSimilarityScoresDistance =
   endCalculateSimilarityScoresTime - startCalculateSimilarityScoresTime;
 console.log(
-  `Time taken by calculateTotalDistance: ${timeCalculateSimilarityScoresDistance.toFixed(
+  `Time taken by calculateSimilarityScores: ${timeCalculateSimilarityScoresDistance.toFixed(
     4
   )} miliseconds`
 );
