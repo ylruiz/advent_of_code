@@ -1,5 +1,6 @@
 import { readFileSync } from "fs";
-import { filePath } from "./file_path";
+
+const filePath = "../inputs/01_12_2024.txt";
 
 const lines = processRowData();
 let groupOneLocationIds: number[] = [];
