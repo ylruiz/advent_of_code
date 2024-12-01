@@ -87,7 +87,7 @@ function calculateSimilarityScores() {
       similarityScores += groupOneLocationIds[i] * count;
     }
 
-    console.log(similarityScores);
+    console.log(similarityScores); // The total distance should be equal to 28786472
     return similarityScores;
   }
 }
