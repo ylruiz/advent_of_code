@@ -14,29 +14,46 @@ function processRowData() {
   }
 }
 
-function calculateTotalOfSafeReports() {
+function calculateTotalOfSafeReports(
+  isSingleBadLevelTolerated: boolean = false
+) {
   const startTime = performance.now();
   const beforeMemory = process.memoryUsage().heapUsed;
 
   if (lines) {
     let totalSafeReports = 0;
+    let totalSafeReportWithTolerance = 0;
 
     lines.map((line) => {
       const report = line.trim().split(/\s+/).map(Number);
 
-      if (isReportSafe(report)) {
-        totalSafeReports++;
+      if (isSingleBadLevelTolerated) {
+        if (isReportSafeWithTolerance(report)) {
+          totalSafeReportWithTolerance++;
+        }
+      } else {
+        if (isReportSafe(report)) {
+          totalSafeReports++;
+        }
       }
     });
+
+    const afterMemory = process.memoryUsage().heapUsed;
+    console.log(`Memory used: ${(afterMemory - beforeMemory) / 1024} KB`);
 
     // The total distance should be equal to 2430334
     const endTime = performance.now();
     const timeTaken = endTime - startTime;
     console.log(
-      `Time taken by calculateTotalDistance: ${timeTaken.toFixed(
+      `Time taken by calculateTotalOfSafeReports with isSingleBadLevelTolerated set to ${isSingleBadLevelTolerated}: ${timeTaken.toFixed(
         4
       )} miliseconds`
     );
+
+    if (isSingleBadLevelTolerated) {
+      console.log(totalSafeReportWithTolerance);
+      return totalSafeReportWithTolerance;
+    }
 
     console.log(totalSafeReports);
     return totalSafeReports;
@@ -48,15 +65,7 @@ function isReportSafe(report: number[]) {
   let i = 0;
 
   while (i < report.length) {
-    if (
-      (isAsc && report[i - 1] > report[i]) ||
-      (!isAsc && report[i - 1] < report[i])
-    ) {
-      return false;
-    }
-
-    const absSub = Math.abs(report[i] - report[i - 1]);
-    if (absSub === 0 || absSub > 3) {
+    if (isLevelUnsafe(isAsc, report[i - 1], report[i])) {
       return false;
     }
 
@@ -66,4 +75,39 @@ function isReportSafe(report: number[]) {
   return true;
 }
 
+function isReportSafeWithTolerance(report: number[]) {
+  if (isReportSafe(report)) {
+    return true;
+  }
+
+  let countUnsafe = 0;
+  let i = 0;
+
+  while (i < report.length) {
+    const tempReport = report.filter((_, index) => index !== i);
+
+    if (isReportSafe(tempReport)) {
+      return true;
+    } else {
+      countUnsafe++;
+    }
+
+    i++;
+  }
+
+  return countUnsafe < 2;
+}
+
+function isLevelUnsafe(isAsc: boolean, numOne: number, numTwo: number) {
+  const absSub = Math.abs(numTwo - numOne);
+
+  return (
+    (isAsc && numOne > numTwo) ||
+    (!isAsc && numOne < numTwo) ||
+    absSub === 0 ||
+    absSub > 3
+  );
+}
+
 calculateTotalOfSafeReports();
+calculateTotalOfSafeReports(true);
