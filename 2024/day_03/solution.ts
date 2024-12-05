@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 
 const filePath = "../inputs/03_12_2024.txt";
 // const filePath = "../inputs/test.txt";
@@ -8,15 +8,14 @@ function calculateMulMatchesSum(isDoInstructionAllowed: boolean = false) {
     const rowData = readFileSync(filePath, "utf-8");
     let sum = 0;
     const regex = /mul\((\d+),(\d+)\)/g;
-
     const matches = rowData.matchAll(regex) ?? [];
-    let tempData = rowData;
+
     let currentIndex = 0;
     let isEnabled = true;
 
     for (const match of matches) {
       if (isDoInstructionAllowed) {
-        const substring = tempData.substring(currentIndex, match.index);
+        const substring = rowData.substring(currentIndex, match.index);
         currentIndex = match.index + match[0].length;
 
         if (substring.includes("don't")) {
