@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync } from "fs";
 
 const filePath = "../inputs/03_12_2024.txt";
 // const filePath = "../inputs/test.txt";

@@ -109,5 +109,5 @@ function isLevelUnsafe(isAsc: boolean, numOne: number, numTwo: number) {
   );
 }
 
-calculateTotalOfSafeReports();
-calculateTotalOfSafeReports(true);
+calculateTotalOfSafeReports(); // 341
+calculateTotalOfSafeReports(true); // 404
