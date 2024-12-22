@@ -1,389 +1,186 @@
 import { readFileSync } from "fs";
 
-const filePath = "../inputs/06_12_2024.txt";
-// const filePath = "../inputs/test.txt";
+// Constants and Types
+type Position = [number, number];
+type Direction = 0 | 1 | 2 | 3;
 
-enum Direction {
-  Up = "^",
-  Down = "v",
-  Left = "<",
-  Right = ">",
-}
-
-enum PositionStatus {
-  Visitable = "Visitable",
-  Obstructed = "Obstructed",
-  Visited = "Visited",
-}
-
-type Position = {
-  x: number;
-  y: number;
-  status?: PositionStatus;
+const DIRECTIONS: Record<Direction, Position> = {
+  0: [-1, 0], // North
+  1: [0, 1], // East
+  2: [1, 0], // South
+  3: [0, -1], // West
 };
 
-type Range = {
-  startPos: Position;
-  endPos: Position;
-};
+const TILE_MAP = {
+  "#": 1, // Obstacle
+  ".": 0, // Empty
+  "^": 2, // Initial Position
+} as const;
 
+const DEFAULT_POSITION: Position = [0, 0];
+
+// Helper functions
+const positionToString = (pos: Position): string => `${pos[0]},${pos[1]}`;
+
+const addPositions = (pos1: Position, pos2: Position): Position =>
+  [pos1[0] + pos2[0], pos1[1] + pos2[1]] as Position;
+
+const mod = (x: number, n: number): number => ((x % n) + n) % n;
+
+// Main Walker class
 class Guard {
-  private _currentPos: Position = { x: -1, y: -1 };
-  private _currentDir: Direction = Direction.Up;
-  private _totalPlacesVisited: number = 0;
+  private position: Position;
+  private direction: Direction;
+  private readonly visited: Set<string>;
+  private readonly visitedStates: Set<string>;
 
-  get currentPos(): Position {
-    return this._currentPos;
+  constructor(position?: Position) {
+    this.position = position ?? DEFAULT_POSITION;
+    this.direction = 0;
+    this.visited = new Set([positionToString(this.position)]);
+    this.visitedStates = new Set([this.getState()]);
   }
 
-  set currentPos(newPos: Position) {
-    this._currentPos = newPos;
+  // Getters and setters
+  setPosition(position: Position): void {
+    this.position = position;
+    this.direction = 0; // Reset direction
+    this.visited.clear(); // Clear previous visited positions
+    this.visitedStates.clear(); // Clear previous states
+    this.visited.add(positionToString(this.position));
+    this.visitedStates.add(this.getState());
   }
 
-  get currentDir(): Direction {
-    return this._currentDir;
+  getPosition(): Position {
+    return [...this.position] as Position;
   }
 
-  set currentDir(newDir: Direction) {
-    this._currentDir = newDir;
+  setDirection(direction: Direction): void {
+    this.direction = direction;
   }
 
-  get totalPlacesVisited(): number {
-    return this._totalPlacesVisited;
+  getDirection(): Direction {
+    return this.direction;
   }
 
-  set totalPlacesVisited(newTotal: number) {
-    if (newTotal >= 0) {
-      this._totalPlacesVisited = newTotal;
-    } else {
-      console.error("Total visited positions cannot be negative");
+  private getState(): string {
+    return `${positionToString(this.position)},${this.direction}`;
+  }
+
+  private getNextPosition(): Position {
+    return addPositions(this.position, DIRECTIONS[this.direction]);
+  }
+
+  private turn(): void {
+    this.direction = mod(this.direction + 1, 4) as Direction;
+  }
+
+  private move(): boolean {
+    this.position = this.getNextPosition();
+    const posKey = positionToString(this.position);
+    this.visited.add(posKey);
+
+    const state = this.getState();
+
+    if (this.visitedStates.has(state)) {
+      return true; // Loop detected
     }
+    this.visitedStates.add(state);
+    return false;
   }
 
-  init(initialPos: Position) {
-    this._currentPos = initialPos;
-    this._currentDir = Direction.Up;
-    this._totalPlacesVisited++;
+  isInBounds(size: number): boolean {
+    return this.position.every((val) => val >= 0 && val < size);
   }
 
-  move(newPos: Position, newDir: Direction, placesVisited: number) {
-    const dir = this.currentDir;
+  hasObstacleAhead(obstacles: Set<string>): boolean {
+    return obstacles.has(positionToString(this.getNextPosition()));
+  }
 
-    this.currentPos = newPos;
-    this.currentDir = newDir;
-    this.totalPlacesVisited += placesVisited;
+  walk(obstacles: Set<string>, size: number): number {
+    while (this.isInBounds(size)) {
+      while (this.hasObstacleAhead(obstacles)) {
+        this.turn();
+      }
+      this.move();
+    }
+    return this.visited.size - 1;
+  }
+
+  walkUntilLoop(obstacles: Set<string>, size: number): boolean {
+    while (this.isInBounds(size)) {
+      while (this.hasObstacleAhead(obstacles)) {
+        this.turn();
+      }
+
+      if (this.move()) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
-class LabMap {
-  private _guard: Guard = new Guard();
-  private _positions: Record<number, PositionStatus[]> = {};
+function init(input: string): {
+  size: number;
+  startPos: Position;
+  obstacles: Set<string>;
+  possibleObstaclePos: Position[];
+} {
+  const lines = input.split(/\s+/);
+  const size = lines.length;
+  const obstacles = new Set<string>();
+  const possibleObstaclePos: Position[] = [];
+  let startPos: Position = [0, 0];
 
-  get guard(): Guard {
-    return this._guard;
-  }
+  for (let i = 0; i < size; i++) {
+    for (let j = 0; j < size; j++) {
+      const value = TILE_MAP[lines[i][j] as keyof typeof TILE_MAP];
+      const pos: Position = [i, j];
 
-  set guard(newGuard: Guard) {
-    if (newGuard) {
-      this._guard = newGuard;
-    } else {
-      console.error("Guard cannot be null or undefined.");
-    }
-  }
-
-  get availableMovePositions(): Position[] {
-    const initialRange = this.moveRange(null);
-    const startX = initialRange.startPos.x;
-    const endX = initialRange.endPos.x;
-    const startY = initialRange.startPos.y;
-    const endY = initialRange.endPos.y;
-
-    let subarray: Position[] = [];
-
-    for (const key in this._positions) {
-      const keyNum = Number(key);
-
-      if (keyNum >= startX && keyNum <= endX) {
-        const positionStatuses = this._positions[keyNum];
-
-        for (let i = 0; i < positionStatuses.length; i++) {
-          if (i >= startY && i <= endY) {
-            subarray.push({ x: keyNum, y: i, status: positionStatuses[i] });
-          }
-        }
+      if (value === 2) {
+        startPos = pos;
+      } else if (value === 1) {
+        obstacles.add(positionToString(pos));
+      } else {
+        possibleObstaclePos.push(pos);
       }
     }
-
-    return subarray;
   }
 
-  moveRange(lastPos?: Position | null): Range {
-    const direction = this.guard.currentDir;
-    const currentPos = this.guard.currentPos;
-
-    switch (direction) {
-      case Direction.Up:
-        return {
-          startPos: lastPos ?? { x: 0, y: currentPos.y },
-          endPos: currentPos,
-        };
-      case Direction.Down:
-        return {
-          startPos: currentPos,
-          endPos: lastPos ?? {
-            x: Math.max(...Object.keys(this._positions).map(Number)),
-            y: currentPos.y,
-          },
-        };
-      case Direction.Right:
-        return {
-          startPos: currentPos,
-          endPos: lastPos ?? {
-            x: currentPos.x,
-            y: this._lengthOfEntryByKey(currentPos.x),
-          },
-        };
-      case Direction.Left:
-        return {
-          startPos: lastPos ?? {
-            x: currentPos.x,
-            y: 0,
-          },
-          endPos: currentPos,
-        };
-      default:
-        console.error(`Direction ${direction} is not supported in getMinKey`);
-        return {
-          startPos: { x: -1, y: -1 },
-          endPos: { x: -1, y: -1 },
-        };
-    }
-  }
-
-  get nextPos(): Position {
-    const direction = this._guard.currentDir;
-    let positions = this.availableMovePositions.filter(
-      (pos) => pos.status == PositionStatus.Obstructed
-    );
-
-    if (positions.length > 0) {
-      switch (direction) {
-        case Direction.Up:
-        case Direction.Left:
-          return positions[positions.length - 1];
-        case Direction.Down:
-        case Direction.Right:
-          return positions[0];
-        default:
-          console.error(`Direction ${direction} is not supported in getMinKey`);
-          return { x: -1, y: -1 };
-      }
-    }
-
-    positions = this.availableMovePositions.filter(
-      (pos) => pos.status == PositionStatus.Visitable
-    );
-
-    if (positions.length > 0) {
-      switch (direction) {
-        case Direction.Up:
-          return {
-            x: 0,
-            y: positions[positions.length - 1].y,
-          };
-        case Direction.Left:
-          return {
-            x: positions[positions.length - 1].x,
-            y: 0,
-          };
-        case Direction.Down:
-          return {
-            x: Math.max(...Object.keys(this._positions).map(Number)),
-            y: positions[positions.length - 1].y,
-          };
-        case Direction.Right:
-          return {
-            x: positions[positions.length - 1].x,
-            y: this._lengthOfEntryByKey(positions[positions.length - 1].y),
-          };
-        default:
-          console.error(`Direction ${direction} is not supported in getMinKey`);
-          return { x: -1, y: -1 };
-      }
-    }
-
-    return { x: -1, y: -1 };
-  }
-
-  get hasObstacles(): boolean {
-    return this.nextPos.x > -1 && this.nextPos.y > -1;
-  }
-
-  get isLastRound(): boolean {
-    return (
-      !this.hasObstacles &&
-      this.availableMovePositions.filter(
-        (pos) => pos.status === PositionStatus.Visitable
-      ).length > 0
-    );
-  }
-
-  _lengthOfEntryByKey(key: number): number {
-    if (this._positions[key]) {
-      return this._positions[key].length;
-    } else {
-      console.log(`Key ${key} not found in positions.`);
-      return -1;
-    }
-  }
-
-  addPosition(posId: number, status: PositionStatus) {
-    if (!this._positions[posId]) {
-      this._positions[posId] = [];
-    }
-
-    this._positions[posId].push(status);
-  }
-
-  updatePosition(key: number, index: number, status: PositionStatus) {
-    if (!this._positions[key]) {
-      console.error(`Key ${key} does not exist in positions.`);
-      return;
-    }
-
-    if (index < 0 || index >= this._positions[key].length) {
-      console.error(`Index ${index} is out of bounds for key ${key}.`);
-      return;
-    }
-
-    this._positions[key][index] = status;
-  }
-
-  executeGuardPatrolProtocol(range: Range): number {
-    let totalPlacesVisited = 0;
-    const startX = range.startPos.x;
-    const endX = range.endPos.x;
-    const startY = range.startPos.y;
-    const endY = range.endPos.y;
-
-    // console.log(this._guard);
-    console.log(range);
-
-    for (const key in this._positions) {
-      const keyNum = Number(key);
-
-      if (keyNum >= startX && keyNum <= endX) {
-        const positionStatuses = this._positions[keyNum];
-
-        for (let i = 0; i < positionStatuses.length; i++) {
-          if (
-            i >= startY &&
-            i <= endY &&
-            positionStatuses[i] === PositionStatus.Visitable
-          ) {
-            this.updatePosition(keyNum, i, PositionStatus.Visited);
-            totalPlacesVisited++;
-          }
-        }
-      }
-    }
-
-    return totalPlacesVisited;
-  }
+  return { size, startPos, obstacles, possibleObstaclePos };
 }
 
-function initLabMap() {
-  const rowData = readFileSync(filePath, "utf-8");
-
-  let labMap = new LabMap();
-
-  rowData
-    .trim()
-    .split("\n")
-    .map((line, key) => {
-      const positions = line.split("");
-
-      positions.forEach((pos, index) => {
-        switch (pos) {
-          case ".":
-            labMap.addPosition(key, PositionStatus.Visitable);
-            break;
-          case "#":
-            labMap.addPosition(key, PositionStatus.Obstructed);
-            break;
-          case "^":
-            labMap.addPosition(key, PositionStatus.Visited);
-            labMap.guard.init({ x: key, y: index });
-            break;
-          default:
-            console.error("The value in pos is invalid.");
-            break;
-        }
-      });
-    });
-
-  return labMap;
+function calculateTotalPosVisited(filePath: string): number {
+  const input = readFileSync(filePath, "utf-8");
+  const { size, startPos, obstacles } = init(input);
+  const guard = new Guard(startPos);
+  return guard.walk(obstacles, size);
 }
 
-function calculateTotalGuardVisitedPos() {
-  let labMap = initLabMap();
-  let guard = labMap.guard;
+function calculateTotalPossibleObstacles(filePath: string): number {
+  const input = readFileSync(filePath, "utf-8");
+  const { size, startPos, obstacles, possibleObstaclePos } = init(input);
 
-  while (labMap.hasObstacles || labMap.isLastRound) {
-    const nextPos = labMap.nextPos;
-    let placesVisited = labMap.executeGuardPatrolProtocol(
-      labMap.moveRange(nextPos)
-    );
+  let loopCount = 0;
+  const guard = new Guard(startPos); // Create single guard instance
 
-    switch (guard.currentDir) {
-      case Direction.Up:
-        guard.move(
-          {
-            x: nextPos.x + 1,
-            y: nextPos.y,
-          },
-          labMap.hasObstacles ? Direction.Right : Direction.Up,
-          placesVisited
-        );
-        break;
-      case Direction.Down:
-        guard.move(
-          {
-            x: nextPos.x - 1,
-            y: nextPos.y,
-          },
-          labMap.hasObstacles ? Direction.Left : Direction.Down,
-          placesVisited
-        );
-        break;
-      case Direction.Right:
-        guard.move(
-          {
-            x: nextPos.x,
-            y: nextPos.y - 1,
-          },
-          labMap.hasObstacles ? Direction.Down : Direction.Right,
-          placesVisited
-        );
-        break;
-      case Direction.Left:
-        guard.move(
-          {
-            x: nextPos.x,
-            y: nextPos.y + 1,
-          },
-          labMap.hasObstacles ? Direction.Up : Direction.Left,
-          placesVisited
-        );
-        break;
-      default:
-        console.error(`Direction ${guard.currentDir} is not supported`);
-        break;
+  for (let i = 0; i < possibleObstaclePos.length; i++) {
+    guard.setPosition(startPos); // Reset guard state for each iteration
+
+    const testObstacles = new Set(obstacles);
+    testObstacles.add(positionToString(possibleObstaclePos[i]));
+
+    const isObstaclePlaced = guard.walkUntilLoop(testObstacles, size);
+
+    if (isObstaclePlaced) {
+      loopCount++;
+      console.log(`Loop found: ${loopCount}`); // Better logging
     }
   }
 
-  console.log(guard.totalPlacesVisited);
-  return guard.totalPlacesVisited;
+  return loopCount; // Remove the -1, it's not needed
 }
 
-calculateTotalGuardVisitedPos();
+// console.log(calculateTotalPosVisited("../inputs/06_12_2024.txt"));
+// console.log(calculateTotalPossibleObstacles("../inputs/06_12_2024.txt"));
